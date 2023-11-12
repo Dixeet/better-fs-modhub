@@ -196,7 +196,7 @@ function changePageQueryParam(value) {
 
 function returnToTop() {
   window.scrollTo({
-    top: 525,
+    top: 500,
     behavior: 'smooth',
   });
 }

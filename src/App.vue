@@ -2,9 +2,6 @@
   <div class="row column better-modhub">
     <div class="features-tabs features-tabs--mods">
       <div class="clearfix">
-        <h3 class="nav-title">
-          <a href="#" @click.stop.prevent>MODS++</a>
-        </h3>
         <ul class="tabs">
           <li
             v-for="tab in dynamicTabs"
@@ -22,9 +19,12 @@
           >
             <a href="#" @click.stop.prevent="fetchMods(true)">⟳</a>
           </li>
-          <li class="tabs-title is-parent tabs-mods-category float-right">
-            <a href="#" @click.stop.prevent><span>Categories</span></a>
-            <AppCategories />
+          <AppCategories />
+          <li
+            v-show="!dynamicDisabled && activeTab !== 'default'"
+            class="tabs-title float-right"
+          >
+            <AppCategorySearch v-model="search" />
           </li>
         </ul>
       </div>
@@ -33,6 +33,7 @@
       :sort-by="activeTab"
       :mods="mods"
       :fetching="fetching"
+      :search="search"
     ></AppModsList>
   </div>
 </template>
@@ -43,6 +44,7 @@ import AppCategories from './components/AppCategories.vue';
 import { useParseCategory } from './composables/useParseCategory.js';
 import { useStorage } from '@vueuse/core';
 import AppModsList from './components/AppModsList.vue';
+import AppCategorySearch from './components/AppCategorySearch.vue';
 
 const disabledFilters = ['most', 'crossplay', 'latest'];
 
@@ -58,6 +60,10 @@ if (searchParams.get('sort')) {
   changeSortQueryParam('default');
 }
 const activeTab = shallowRef(activeTabParam);
+const searchQueryParam = searchParams.get('search')
+  ? decodeURIComponent(searchParams.get('search'))
+  : '';
+const search = shallowRef(searchQueryParam);
 
 const dynamicDisabled = computed(
   () => !filter.value || disabledFilters.includes(filter.value),
@@ -65,7 +71,7 @@ const dynamicDisabled = computed(
 const dynamicTabs = computed(() => {
   const defaultTab = {
     value: 'default',
-    name: 'DEFAULT',
+    name: 'ModHub',
   };
 
   if (!dynamicDisabled.value) {
@@ -136,5 +142,17 @@ function changeSortQueryParam(sort) {
 }
 .features-tabs .tabs-title.reload-button:after {
   content: none;
+}
+
+.features-tabs .tabs-title > span {
+  font-size: 17px;
+  color: #9e9e9e;
+  text-transform: uppercase;
+  font-family: 'RobotoCondensed';
+  font-weight: 300;
+  padding: 20px 0 17px;
+  border-bottom: 3px solid transparent;
+  display: block;
+  line-height: 1;
 }
 </style>

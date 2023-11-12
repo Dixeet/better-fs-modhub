@@ -2,6 +2,9 @@
   <Teleport to="body > div > div.box-space">
     <div v-if="isVisible">
       <div v-show="!fetching">
+        <div class="row column">
+          <AppPaginator v-model="currentPage" :page-count="pageCount" />
+        </div>
         <div class="row">
           <div
             v-for="(mod, index) in modsPaginated"
@@ -68,6 +71,10 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  search: {
+    type: String,
+    default: '',
+  },
 });
 
 const modsPerPages = 24;
@@ -82,15 +89,19 @@ const currentPage = shallowRef(currentPageParam);
 const isVisible = computed(() => {
   return props.sortBy !== 'default';
 });
-const pageCount = computed(() => {
-  return Math.ceil(props.mods.length / modsPerPages);
-});
 const modsSorted = computed(() => {
-  let modsSorted = [];
+  let modsSorted = [...props.mods];
+  if (props.search) {
+    modsSorted = modsSorted.filter((mod) => {
+      return props.search
+        .split(' ')
+        .every((s) => mod.name.toLowerCase().includes(s.toLowerCase()));
+    });
+  }
   if (props.sortBy === 'top') {
-    modsSorted = props.mods.toSorted((a, b) => b.downloads - a.downloads);
+    modsSorted.sort((a, b) => b.downloads - a.downloads);
   } else if (props.sortBy === 'alpha') {
-    modsSorted = props.mods.toSorted((a, b) => a.name.localeCompare(b.name));
+    modsSorted.sort((a, b) => a.name.localeCompare(b.name));
   }
   return modsSorted.map((mod) => {
     const semiRoundedStar = Math.round(mod.rating * 2) / 2;
@@ -112,6 +123,9 @@ const modsSorted = computed(() => {
       stars,
     };
   });
+});
+const pageCount = computed(() => {
+  return Math.ceil(modsSorted.value.length / modsPerPages);
 });
 const modsPaginated = computed(() => {
   return modsSorted.value.slice(

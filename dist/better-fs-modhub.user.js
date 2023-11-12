@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name       better-fs-modhub
 // @namespace  npm/vite-plugin-monkey
-// @version    0.0.0
+// @version    1.0.0
 // @author     monkey
 // @icon       https://vitejs.dev/logo.svg
 // @match      https://www.farming-simulator.com/mods.php*
@@ -9,42 +9,74 @@
 // @grant      GM_addStyle
 // ==/UserScript==
 
-(t=>{if(typeof GM_addStyle=="function"){GM_addStyle(t);return}const e=document.createElement("style");e.textContent=t,document.head.append(e)})(" .app-paginator .pagination li{margin-right:0}.better-modhub .features-tabs .tabs{padding-right:0}.better-modhub .reload-button{text-align:center;min-width:70px;padding:0}.features-tabs .tabs-title.reload-button:after{content:none} ");
+(t=>{if(typeof GM_addStyle=="function"){GM_addStyle(t);return}const e=document.createElement("style");e.textContent=t,document.head.append(e)})(" .app-paginator .pagination li{margin-right:0}.search-category{padding:11px 10px;display:flex;align-items:center}.search-category a.clear-icon{width:32px;padding:5px 10px;color:unset}.search-category a.clear-icon:hover{color:#a3c976}.search-category .mod-search-input{background-position:96%;background-origin:border-box}.better-modhub .features-tabs .tabs{padding-right:0}.better-modhub .reload-button{text-align:center;min-width:70px;padding:0}.features-tabs .tabs-title.reload-button:after{content:none}.features-tabs .tabs-title>span{font-size:17px;color:#9e9e9e;text-transform:uppercase;font-family:RobotoCondensed;font-weight:300;padding:20px 0 17px;border-bottom:3px solid transparent;display:block;line-height:1} ");
 
 (function (vue) {
   'use strict';
 
-  const _hoisted_1$3 = { class: "tabs-mods-category-list" };
-  const _hoisted_2$3 = ["href"];
-  const _sfc_main$3 = {
+  const _hoisted_1$4 = { class: "tabs-mods-category-list" };
+  const _hoisted_2$4 = ["href"];
+  const _sfc_main$4 = {
     __name: "AppCategories",
     setup(__props) {
+      const searchParams = new URLSearchParams(window.location.search);
       const categories = vue.shallowRef([]);
+      const filter = vue.shallowRef(null);
+      const currentCategoryName = vue.computed(() => {
+        if (!filter.value) {
+          return "Categories";
+        }
+        const findCategory = categories.value.find(
+          (category) => category.value === filter.value
+        );
+        if (findCategory) {
+          return findCategory.name;
+        }
+        return "Categories";
+      });
+      const isActive = vue.computed(() => currentCategoryName.value !== "Categories");
       vue.onMounted(() => {
         const categoriesElements = document.querySelectorAll(
           "body > div > div.box-space > div:nth-child(1) > div.features-tabs.features-tabs--mods > div > ul > li.tabs-mods-category > ul > li > a"
         );
         const cats = [];
         categoriesElements.forEach((el) => {
+          const elSearchParams = new URLSearchParams(el.href);
+          const value = elSearchParams.get("filter");
           cats.push({
             href: el.href,
-            name: el.textContent
+            name: el.textContent,
+            value
           });
         });
         categories.value = cats.sort((a, b) => a.name.localeCompare(b.name));
+        filter.value = searchParams.get("filter");
       });
       return (_ctx, _cache) => {
-        return vue.openBlock(), vue.createElementBlock("ul", _hoisted_1$3, [
-          (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(categories.value, (category, index) => {
-            return vue.openBlock(), vue.createElementBlock("li", {
-              key: `cat-${index}`
-            }, [
-              vue.createElementVNode("a", {
-                href: category.href
-              }, vue.toDisplayString(category.name), 9, _hoisted_2$3)
-            ]);
-          }), 128))
-        ]);
+        return vue.openBlock(), vue.createElementBlock("li", {
+          class: vue.normalizeClass(["tabs-title is-parent tabs-mods-category float-right", { "is-active": isActive.value }])
+        }, [
+          vue.createElementVNode("a", {
+            href: "#",
+            onClick: _cache[0] || (_cache[0] = vue.withModifiers(() => {
+            }, ["stop", "prevent"]))
+          }, [
+            vue.createElementVNode("span", null, vue.toDisplayString(currentCategoryName.value), 1)
+          ]),
+          vue.createElementVNode("ul", _hoisted_1$4, [
+            (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(categories.value, (category, index) => {
+              return vue.openBlock(), vue.createElementBlock("li", {
+                key: `cat-${index}`,
+                class: "is-active"
+              }, [
+                vue.createElementVNode("a", {
+                  class: "active",
+                  href: category.href
+                }, vue.toDisplayString(category.name), 9, _hoisted_2$4)
+              ]);
+            }), 128))
+          ])
+        ], 2);
       };
     }
   };
@@ -155,6 +187,47 @@
   const bypassFilter = (invoke) => {
     return invoke();
   };
+  function debounceFilter(ms, options = {}) {
+    let timer;
+    let maxTimer;
+    let lastRejector = noop;
+    const _clearTimeout = (timer2) => {
+      clearTimeout(timer2);
+      lastRejector();
+      lastRejector = noop;
+    };
+    const filter = (invoke) => {
+      const duration = toValue(ms);
+      const maxDuration = toValue(options.maxWait);
+      if (timer)
+        _clearTimeout(timer);
+      if (duration <= 0 || maxDuration !== void 0 && maxDuration <= 0) {
+        if (maxTimer) {
+          _clearTimeout(maxTimer);
+          maxTimer = null;
+        }
+        return Promise.resolve(invoke());
+      }
+      return new Promise((resolve, reject) => {
+        lastRejector = options.rejectOnCancel ? reject : resolve;
+        if (maxDuration && !maxTimer) {
+          maxTimer = setTimeout(() => {
+            if (timer)
+              _clearTimeout(timer);
+            maxTimer = null;
+            resolve(invoke());
+          }, maxDuration);
+        }
+        timer = setTimeout(() => {
+          if (maxTimer)
+            _clearTimeout(maxTimer);
+          maxTimer = null;
+          resolve(invoke());
+        }, duration);
+      });
+    };
+    return filter;
+  }
   function pausableFilter(extendFilter = bypassFilter) {
     const isActive = vue.ref(true);
     function pause() {
@@ -168,6 +241,12 @@
         extendFilter(...args);
     };
     return { isActive: vue.readonly(isActive), pause, resume, eventFilter };
+  }
+  function useDebounceFn(fn, ms = 200, options = {}) {
+    return createFilterWrapper(
+      debounceFilter(ms, options),
+      fn
+    );
   }
   function watchWithFilter(source, cb, options = {}) {
     const {
@@ -428,8 +507,8 @@
       }
     }
   }
-  const _hoisted_1$2 = { class: "pagination-wrap app-paginator" };
-  const _hoisted_2$2 = ["onClick"];
+  const _hoisted_1$3 = { class: "pagination-wrap app-paginator" };
+  const _hoisted_2$3 = ["onClick"];
   const _hoisted_3$2 = {
     class: "pagination text-center clearfix",
     role: "navigation",
@@ -443,7 +522,7 @@
   const _hoisted_6$2 = ["aria-label", "onClick"];
   const _hoisted_7$2 = ["onClick"];
   const maxPages = 7;
-  const _sfc_main$2 = {
+  const _sfc_main$3 = {
     __name: "AppPaginator",
     props: {
       modelValue: {
@@ -584,12 +663,12 @@
       }
       function returnToTop() {
         window.scrollTo({
-          top: 525,
+          top: 500,
           behavior: "smooth"
         });
       }
       return (_ctx, _cache) => {
-        return vue.openBlock(), vue.createElementBlock("div", _hoisted_1$2, [
+        return vue.openBlock(), vue.createElementBlock("div", _hoisted_1$3, [
           vue.createElementVNode("div", {
             class: vue.normalizeClass(["pagination-previous", { disabled: currentPage.value === 1 }])
           }, [
@@ -598,7 +677,7 @@
               href: "#",
               "aria-label": "Previous page",
               onClick: vue.withModifiers(previous, ["stop", "prevent"])
-            }, null, 8, _hoisted_2$2)) : vue.createCommentVNode("", true)
+            }, null, 8, _hoisted_2$3)) : vue.createCommentVNode("", true)
           ], 2),
           vue.createElementVNode("ul", _hoisted_3$2, [
             (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(pages.value, (page) => {
@@ -629,23 +708,24 @@
       };
     }
   };
-  const _hoisted_1$1 = { key: 0 };
-  const _hoisted_2$1 = { class: "row" };
-  const _hoisted_3$1 = { class: "mod-item" };
-  const _hoisted_4$1 = { class: "mod-item__img" };
-  const _hoisted_5$1 = ["href"];
-  const _hoisted_6$1 = ["src"];
-  const _hoisted_7$1 = { class: "mod-item__content" };
-  const _hoisted_8$1 = { class: "mods-rating clearfix" };
-  const _hoisted_9$1 = { class: "mod-item__rating-num" };
-  const _hoisted_10$1 = ["href"];
-  const _hoisted_11 = { class: "row column" };
-  const _hoisted_12 = /* @__PURE__ */ vue.createElementVNode("div", { class: "row column" }, "Fetching...", -1);
-  const _hoisted_13 = [
-    _hoisted_12
+  const _hoisted_1$2 = { key: 0 };
+  const _hoisted_2$2 = { class: "row column" };
+  const _hoisted_3$1 = { class: "row" };
+  const _hoisted_4$1 = { class: "mod-item" };
+  const _hoisted_5$1 = { class: "mod-item__img" };
+  const _hoisted_6$1 = ["href"];
+  const _hoisted_7$1 = ["src"];
+  const _hoisted_8 = { class: "mod-item__content" };
+  const _hoisted_9 = { class: "mods-rating clearfix" };
+  const _hoisted_10 = { class: "mod-item__rating-num" };
+  const _hoisted_11 = ["href"];
+  const _hoisted_12 = { class: "row column" };
+  const _hoisted_13 = /* @__PURE__ */ vue.createElementVNode("div", { class: "row column" }, "Fetching...", -1);
+  const _hoisted_14 = [
+    _hoisted_13
   ];
   const modsPerPages = 24;
-  const _sfc_main$1 = {
+  const _sfc_main$2 = {
     __name: "AppModsList",
     props: {
       mods: {
@@ -659,6 +739,10 @@
       fetching: {
         type: Boolean,
         default: false
+      },
+      search: {
+        type: String,
+        default: ""
       }
     },
     setup(__props) {
@@ -669,15 +753,17 @@
       const isVisible = vue.computed(() => {
         return props.sortBy !== "default";
       });
-      const pageCount = vue.computed(() => {
-        return Math.ceil(props.mods.length / modsPerPages);
-      });
       const modsSorted = vue.computed(() => {
-        let modsSorted2 = [];
+        let modsSorted2 = [...props.mods];
+        if (props.search) {
+          modsSorted2 = modsSorted2.filter((mod) => {
+            return props.search.split(" ").every((s) => mod.name.toLowerCase().includes(s.toLowerCase()));
+          });
+        }
         if (props.sortBy === "top") {
-          modsSorted2 = props.mods.toSorted((a, b) => b.downloads - a.downloads);
+          modsSorted2.sort((a, b) => b.downloads - a.downloads);
         } else if (props.sortBy === "alpha") {
-          modsSorted2 = props.mods.toSorted((a, b) => a.name.localeCompare(b.name));
+          modsSorted2.sort((a, b) => a.name.localeCompare(b.name));
         }
         return modsSorted2.map((mod) => {
           const semiRoundedStar = Math.round(mod.rating * 2) / 2;
@@ -699,6 +785,9 @@
             stars
           };
         });
+      });
+      const pageCount = vue.computed(() => {
+        return Math.ceil(modsSorted.value.length / modsPerPages);
       });
       const modsPaginated = vue.computed(() => {
         return modsSorted.value.slice(
@@ -735,30 +824,37 @@
       );
       return (_ctx, _cache) => {
         return vue.openBlock(), vue.createBlock(vue.Teleport, { to: "body > div > div.box-space" }, [
-          isVisible.value ? (vue.openBlock(), vue.createElementBlock("div", _hoisted_1$1, [
+          isVisible.value ? (vue.openBlock(), vue.createElementBlock("div", _hoisted_1$2, [
             vue.withDirectives(vue.createElementVNode("div", null, [
-              vue.createElementVNode("div", _hoisted_2$1, [
+              vue.createElementVNode("div", _hoisted_2$2, [
+                vue.createVNode(_sfc_main$3, {
+                  modelValue: currentPage.value,
+                  "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => currentPage.value = $event),
+                  "page-count": pageCount.value
+                }, null, 8, ["modelValue", "page-count"])
+              ]),
+              vue.createElementVNode("div", _hoisted_3$1, [
                 (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(modsPaginated.value, (mod, index) => {
                   return vue.openBlock(), vue.createElementBlock("div", {
                     key: `mod-${index}`,
                     class: "medium-6 large-3 columns"
                   }, [
-                    vue.createElementVNode("div", _hoisted_3$1, [
-                      vue.createElementVNode("div", _hoisted_4$1, [
+                    vue.createElementVNode("div", _hoisted_4$1, [
+                      vue.createElementVNode("div", _hoisted_5$1, [
                         vue.createElementVNode("a", {
                           href: mod.href
                         }, [
                           vue.createElementVNode("img", {
                             src: mod.img
-                          }, null, 8, _hoisted_6$1)
-                        ], 8, _hoisted_5$1)
+                          }, null, 8, _hoisted_7$1)
+                        ], 8, _hoisted_6$1)
                       ]),
-                      vue.createElementVNode("div", _hoisted_7$1, [
+                      vue.createElementVNode("div", _hoisted_8, [
                         vue.createElementVNode("h4", null, vue.toDisplayString(mod.name), 1),
                         vue.createElementVNode("p", null, [
                           vue.createElementVNode("span", null, vue.toDisplayString(mod.author), 1)
                         ]),
-                        vue.createElementVNode("div", _hoisted_8$1, [
+                        vue.createElementVNode("div", _hoisted_9, [
                           (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(mod.stars, (star, startIndex) => {
                             return vue.openBlock(), vue.createElementBlock("span", {
                               key: `star-${startIndex}`,
@@ -766,27 +862,27 @@
                             }, null, 2);
                           }), 128))
                         ]),
-                        vue.createElementVNode("div", _hoisted_9$1, vue.toDisplayString(mod.rating) + " (" + vue.toDisplayString(mod.downloads) + ") ", 1)
+                        vue.createElementVNode("div", _hoisted_10, vue.toDisplayString(mod.rating) + " (" + vue.toDisplayString(mod.downloads) + ") ", 1)
                       ]),
                       vue.createElementVNode("a", {
                         href: mod.href,
                         class: "button button-buy button-middle button-no-margin expanded"
-                      }, " MORE INFO ", 8, _hoisted_10$1)
+                      }, " MORE INFO ", 8, _hoisted_11)
                     ])
                   ]);
                 }), 128))
               ]),
-              vue.createElementVNode("div", _hoisted_11, [
-                vue.createVNode(_sfc_main$2, {
+              vue.createElementVNode("div", _hoisted_12, [
+                vue.createVNode(_sfc_main$3, {
                   modelValue: currentPage.value,
-                  "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => currentPage.value = $event),
+                  "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => currentPage.value = $event),
                   "page-count": pageCount.value
                 }, null, 8, ["modelValue", "page-count"])
               ])
             ], 512), [
               [vue.vShow, !__props.fetching]
             ]),
-            vue.withDirectives(vue.createElementVNode("div", null, _hoisted_13, 512), [
+            vue.withDirectives(vue.createElementVNode("div", null, _hoisted_14, 512), [
               [vue.vShow, __props.fetching]
             ])
           ])) : vue.createCommentVNode("", true)
@@ -794,18 +890,72 @@
       };
     }
   };
+  const _hoisted_1$1 = { class: "search-category" };
+  const _hoisted_2$1 = ["onClick"];
+  const _sfc_main$1 = {
+    __name: "AppCategorySearch",
+    props: {
+      modelValue: {
+        type: String,
+        required: true
+      }
+    },
+    emits: ["update:modelValue"],
+    setup(__props, { emit: __emit }) {
+      const props = __props;
+      const emit = __emit;
+      const debounceEmit = useDebounceFn((value) => {
+        emit("update:modelValue", value);
+        const encodedValue = encodeURIComponent(value);
+        const url = new URL(window.location);
+        if (encodedValue) {
+          url.searchParams.set("search", encodedValue);
+        } else {
+          url.searchParams.delete("search");
+        }
+        history.replaceState({}, "", url);
+      }, 350);
+      const search = vue.computed({
+        get() {
+          return props.modelValue;
+        },
+        set(value) {
+          debounceEmit(value);
+        }
+      });
+      function clear() {
+        emit("update:modelValue", "");
+      }
+      return (_ctx, _cache) => {
+        return vue.openBlock(), vue.createElementBlock("div", _hoisted_1$1, [
+          vue.withDirectives(vue.createElementVNode("a", {
+            class: "clear-icon",
+            href: "#",
+            onClick: vue.withModifiers(clear, ["stop", "prevent"])
+          }, " ✖ ", 8, _hoisted_2$1), [
+            [vue.vShow, search.value]
+          ]),
+          vue.withDirectives(vue.createElementVNode("input", {
+            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => search.value = $event),
+            type: "text",
+            name: "searchMod",
+            placeholder: "Search in category",
+            class: "mod-search-input",
+            style: vue.normalizeStyle({ "margin-left": search.value ? 0 : "32px" })
+          }, null, 4), [
+            [vue.vModelText, search.value]
+          ])
+        ]);
+      };
+    }
+  };
   const _hoisted_1 = { class: "row column better-modhub" };
   const _hoisted_2 = { class: "features-tabs features-tabs--mods" };
   const _hoisted_3 = { class: "clearfix" };
-  const _hoisted_4 = { class: "nav-title" };
-  const _hoisted_5 = { class: "tabs" };
-  const _hoisted_6 = ["onClick"];
-  const _hoisted_7 = { class: "tabs-title float-right reload-button" };
-  const _hoisted_8 = { class: "tabs-title is-parent tabs-mods-category float-right" };
-  const _hoisted_9 = /* @__PURE__ */ vue.createElementVNode("span", null, "Categories", -1);
-  const _hoisted_10 = [
-    _hoisted_9
-  ];
+  const _hoisted_4 = { class: "tabs" };
+  const _hoisted_5 = ["onClick"];
+  const _hoisted_6 = { class: "tabs-title float-right reload-button" };
+  const _hoisted_7 = { class: "tabs-title float-right" };
   const _sfc_main = {
     __name: "App",
     setup(__props) {
@@ -822,13 +972,15 @@
         changeSortQueryParam("default");
       }
       const activeTab = vue.shallowRef(activeTabParam);
+      const searchQueryParam = searchParams.get("search") ? decodeURIComponent(searchParams.get("search")) : "";
+      const search = vue.shallowRef(searchQueryParam);
       const dynamicDisabled = vue.computed(
         () => !filter.value || disabledFilters.includes(filter.value)
       );
       const dynamicTabs = vue.computed(() => {
         const defaultTab = {
           value: "default",
-          name: "DEFAULT"
+          name: "ModHub"
         };
         if (!dynamicDisabled.value) {
           return [
@@ -883,14 +1035,7 @@
         return vue.openBlock(), vue.createElementBlock("div", _hoisted_1, [
           vue.createElementVNode("div", _hoisted_2, [
             vue.createElementVNode("div", _hoisted_3, [
-              vue.createElementVNode("h3", _hoisted_4, [
-                vue.createElementVNode("a", {
-                  href: "#",
-                  onClick: _cache[0] || (_cache[0] = vue.withModifiers(() => {
-                  }, ["stop", "prevent"]))
-                }, "MODS++")
-              ]),
-              vue.createElementVNode("ul", _hoisted_5, [
+              vue.createElementVNode("ul", _hoisted_4, [
                 (vue.openBlock(true), vue.createElementBlock(vue.Fragment, null, vue.renderList(dynamicTabs.value, (tab) => {
                   return vue.openBlock(), vue.createElementBlock("li", {
                     key: tab.value,
@@ -899,33 +1044,35 @@
                     vue.createElementVNode("a", {
                       href: "#",
                       onClick: vue.withModifiers(($event) => chooseSort(tab.value), ["stop", "prevent"])
-                    }, vue.toDisplayString(tab.name), 9, _hoisted_6)
+                    }, vue.toDisplayString(tab.name), 9, _hoisted_5)
                   ], 2);
                 }), 128)),
-                vue.withDirectives(vue.createElementVNode("li", _hoisted_7, [
+                vue.withDirectives(vue.createElementVNode("li", _hoisted_6, [
                   vue.createElementVNode("a", {
                     href: "#",
-                    onClick: _cache[1] || (_cache[1] = vue.withModifiers(($event) => fetchMods(true), ["stop", "prevent"]))
+                    onClick: _cache[0] || (_cache[0] = vue.withModifiers(($event) => fetchMods(true), ["stop", "prevent"]))
                   }, "⟳")
                 ], 512), [
                   [vue.vShow, !dynamicDisabled.value]
                 ]),
-                vue.createElementVNode("li", _hoisted_8, [
-                  vue.createElementVNode("a", {
-                    href: "#",
-                    onClick: _cache[2] || (_cache[2] = vue.withModifiers(() => {
-                    }, ["stop", "prevent"]))
-                  }, _hoisted_10),
-                  vue.createVNode(_sfc_main$3)
+                vue.createVNode(_sfc_main$4),
+                vue.withDirectives(vue.createElementVNode("li", _hoisted_7, [
+                  vue.createVNode(_sfc_main$1, {
+                    modelValue: search.value,
+                    "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => search.value = $event)
+                  }, null, 8, ["modelValue"])
+                ], 512), [
+                  [vue.vShow, !dynamicDisabled.value && activeTab.value !== "default"]
                 ])
               ])
             ])
           ]),
-          vue.createVNode(_sfc_main$1, {
+          vue.createVNode(_sfc_main$2, {
             "sort-by": activeTab.value,
             mods: mods.value,
-            fetching: fetching.value
-          }, null, 8, ["sort-by", "mods", "fetching"])
+            fetching: fetching.value,
+            search: search.value
+          }, null, 8, ["sort-by", "mods", "fetching", "search"])
         ]);
       };
     }
