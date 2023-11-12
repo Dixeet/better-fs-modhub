@@ -22,7 +22,7 @@ Visit [FS Modhub website](https://www.farming-simulator.com/mods.php?lang=en&cou
 
 ## Usage
 
-To prevent too much stress on FS website, the script is "activated" only when you have selected a category. Which means for example that for "Latest" or "Top Downloaded" you wont be able to sort or use the improved search.
+To prevent too much stress on FS website, the script is "activated" only when you have selected a category. Which means for example that for "Latest" or "Top Downloaded" you wont be able to sort or use the improved search.<br>
 For the same reason, each category is parse automatically only once when you first visit the category then is cached into the browser storage. If you want to update the category, to refresh the list with new mods or if you have changed the language, you will have to manually update it by clicking on ` ⟳ ` button.
 
 The first three left tabs :
@@ -36,3 +36,11 @@ The searchbar is only available if you have selected either TOP or A-Z sort. It 
 The CATEGORIES, is the categories list but sorted alphabetically. It will also show you the current selected category name.
 
 The ` ⟳ ` allows you to refresh the mods list for the selected category in case you want to update with the last added mods or you have changed the language selected for example.
+
+## Development
+
+The script is under MIT License, which means you can do whatever you want with it as long as you publish it under the same License. You can fork this repo and make your own modification to the script
+
+- `npm run dev` to launch the development server
+- `npm run build` to build the script
+- `npm run preview` to launch a preview server
